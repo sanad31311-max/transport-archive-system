@@ -3,20 +3,25 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# --- 1. إعدادات النظام والمجلدات ---
+# --- 1. إعدادات النظام وإصلاح قواعد البيانات ---
 DB_REPORTS = "reports_db.csv"
 DB_USERS = "users_db.csv"
 DOCS_DIR = "assets/docs"
 
 def init_system():
-    # تحديث الأعمدة لتشمل "الحالة" (جديد/مقروء)
-    if not os.path.exists(DB_REPORTS):
-        pd.DataFrame(columns=["التاريخ", "من", "إلى", "اللوحة", "النوع", "التفاصيل", "الحالة"]).to_csv(DB_REPORTS, index=False)
-    else:
+    # إصلاح ملف التقارير وتجنب الـ KeyError
+    if os.path.exists(DB_REPORTS):
         df = pd.read_csv(DB_REPORTS)
-        if "الحالة" not in df.columns:
-            df["الحالة"] = "مقروء" # التقارير القديمة تعتبر مقروءة
+        cols_to_add = {"من": "غير معروف", "إلى": "الإدارة", "الحالة": "مقروء"}
+        updated = False
+        for col, default in cols_to_add.items():
+            if col not in df.columns:
+                df[col] = default
+                updated = True
+        if updated:
             df.to_csv(DB_REPORTS, index=False)
+    else:
+        pd.DataFrame(columns=["التاريخ", "من", "إلى", "اللوحة", "النوع", "التفاصيل", "الحالة"]).to_csv(DB_REPORTS, index=False)
 
     if not os.path.exists(DB_USERS):
         initial_users = pd.DataFrame([
@@ -28,7 +33,7 @@ def init_system():
 
 init_system()
 
-# --- 2. التنسيق المطور (إضافة ستايل التنبيه الأحمر) ---
+# --- 2. التنسيق الرسمي المطور ---
 st.set_page_config(page_title="مؤسسة أسطول الخليج", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -36,26 +41,26 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700&display=swap');
     html, body, [class*="css"] { font-family: 'Tajawal', sans-serif; direction: rtl; text-align: right; }
     [data-testid="stHeader"], footer, [data-testid="stSidebar"] {visibility: hidden !important;}
-    .block-container {padding: 1rem !important;}
-    
-    div.stButton > button {
-        width: 100% !important; height: 2.8em !important; 
-        border-radius: 8px !important; background-color: #002e63 !important;
-        color: white !important; font-size: 15px !important; font-weight: bold !important;
-        margin-bottom: 8px !important; border: none !important;
-    }
-    
-    /* زر التنبيه الأحمر للتقارير الجديدة */
-    .new-report-btn button {
-        background-color: #dc2626 !important; /* أحمر تنبيه */
-        border: 2px solid white !important;
-    }
+    .block-container {padding: 0.5rem 1rem !important;}
 
-    .top-nav button { background-color: #475569 !important; height: 2.5em !important; }
+    /* تصغير الأزرار وتنسيقها */
+    div.stButton > button {
+        width: 100% !important; height: 2.6em !important; 
+        border-radius: 8px !important; background-color: #002e63 !important;
+        color: white !important; font-size: 14px !important; font-weight: bold !important;
+        margin-bottom: 6px !important; border: none !important;
+    }
+    
+    /* أزرار التنقل العلوية */
+    .nav-box button { background-color: #475569 !important; height: 2.3em !important; }
+    
+    /* تنبيه أحمر للتقارير الجديدة */
+    .alert-btn button { background-color: #dc2626 !important; border: 1px solid white !important; }
+
     .metric-card {
-        background: white; padding: 15px; border-radius: 10px;
+        background: white; padding: 12px; border-radius: 10px;
         border-right: 5px solid #002e63; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 15px; text-align: center;
+        margin-bottom: 10px; text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -69,55 +74,54 @@ FLEET_PLATES = [str(p) for p in [1140, 1527, 1644, 1716, 1811, 1994, 2070, 2430,
 
 # --- 4. شاشة الدخول ---
 if not st.session_state['auth']:
-    st.markdown('<h2 style="color: #002e63; text-align: center; margin-top: 50px;">مؤسسة أسطول الخليج</h2>', unsafe_allow_html=True)
+    st.markdown('<h3 style="color: #002e63; text-align: center; margin-top: 30px;">نظام أسطول الخليج</h3>', unsafe_allow_html=True)
     users_df = pd.read_csv(DB_USERS)
     user_in = st.selectbox("المستخدم", users_df['username'].tolist())
     pass_in = st.text_input("كلمة المرور", type="password")
-    if st.button("دخول للنظام"):
+    if st.button("تسجيل الدخول"):
         valid = users_df[(users_df['username'] == user_in) & (users_df['password'] == pass_in)]
         if not valid.empty:
             st.session_state.update({'auth': True, 'username': user_in, 'role': valid.iloc[0]['role'], 'perms': valid.iloc[0]['perms'].split(",")})
             st.rerun()
         else: st.error("خطأ في البيانات")
 
-# --- 5. الواجهة الداخلية ---
+# --- 5. الواجهة الداخلية المحدثة ---
 else:
-    # شريط التحكم العلوي
-    c_right, c_spacer, c_left = st.columns([0.2, 0.6, 0.2])
+    # شريط التحكم العلوي (يمين: رجوع | يسار: تحديث)
+    c_right, c_spacer, c_left = st.columns([0.25, 0.5, 0.25])
     with c_right:
         if st.session_state['view'] != "الرئيسية":
-            st.markdown('<div class="top-nav">', unsafe_allow_html=True)
-            if st.button("رجوع"):
+            st.markdown('<div class="nav-box">', unsafe_allow_html=True)
+            if st.button("⬅️ رجوع"):
                 if st.session_state['sub_view']: st.session_state['sub_view'] = None
                 else: st.session_state['view'] = "الرئيسية"
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
     with c_left:
-        st.markdown('<div class="top-nav">', unsafe_allow_html=True)
-        if st.button("تحديث"): st.rerun()
+        st.markdown('<div class="nav-box">', unsafe_allow_html=True)
+        if st.button("🔄 تحديث"): st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # حساب التقارير الجديدة غير المقروءة
+    # حساب التقارير الجديدة
     all_reps = pd.read_csv(DB_REPORTS)
-    unread_reps = all_reps[(all_reps['إلى'] == st.session_state['username']) & (all_reps['الحالة'] == "جديد")]
-    unread_count = len(unread_reps)
+    unread_count = len(all_reps[(all_reps['إلى'] == st.session_state['username']) & (all_reps['الحالة'] == "جديد")])
 
-    # الصفحة الرئيسية
     if st.session_state['view'] == "الرئيسية":
-        st.markdown(f'<h3 style="color: #002e63; text-align: center;">لوحة التحكم</h3>', unsafe_allow_html=True)
+        st.markdown(f'<h4 style="color: #002e63; text-align: center;">لوحة التحكم</h4>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
-        with col1: st.markdown(f'<div class="metric-card"><h4>{len(FLEET_PLATES)}</h4>مركبة</div>', unsafe_allow_html=True)
-        with col2: 
-            st.markdown(f'<div class="metric-card"><h4>{unread_count}</h4>تقارير جديدة</div>', unsafe_allow_html=True)
+        with col1: st.markdown(f'<div class="metric-card"><h6>الأسطول</h6><h5>{len(FLEET_PLATES)}</h5></div>', unsafe_allow_html=True)
+        with col2: st.markdown(f'<div class="metric-card"><h6>تنبيهات</h6><h5>{unread_count}</h5></div>', unsafe_allow_html=True)
         
-        st.divider()
+        st.write("---")
+        # عرض التصنيفات
         for cat in st.session_state['perms']:
             if st.button(cat):
                 st.session_state['sub_view'] = cat; st.session_state['view'] = "الفرعية"; st.rerun()
         
-        # زر التقارير مع التنبيه الملون
+        # زر التقارير في الأسفل (مع تنبيه أحمر إذا وجد جديد)
+        st.write("---")
         if unread_count > 0:
-            st.markdown('<div class="new-report-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="alert-btn">', unsafe_allow_html=True)
             if st.button(f"📊 مركز التقارير ({unread_count} جديد)"):
                 st.session_state['view'] = "التقارير"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -125,45 +129,30 @@ else:
             if st.button("📊 مركز التقارير"):
                 st.session_state['view'] = "التقارير"; st.rerun()
         
-        if st.button("🚪 تسجيل الخروج"):
+        if st.button("🚪 خروج"):
             st.session_state['auth'] = False; st.rerun()
 
-    # صفحة التقارير (تحديث الحالة إلى مقروء عند الدخول)
     elif st.session_state['view'] == "التقارير":
-        st.markdown('<h3 style="text-align: center; color: #002e63;">مركز التقارير</h3>', unsafe_allow_html=True)
+        st.markdown('<h4 style="text-align: center;">مركز استعراض التقارير</h4>', unsafe_allow_html=True)
+        display_reps = all_reps if st.session_state['role'] == "الإدارة" else all_reps[(all_reps['إلى'] == st.session_state['username']) | (all_reps['من'] == st.session_state['username'])]
+        st.dataframe(display_reps.sort_values(by="التاريخ", ascending=False), use_container_width=True)
         
-        # عرض التقارير حسب الصلاحية
-        if st.session_state['role'] == "الإدارة":
-            display_reps = all_reps
-        else:
-            display_reps = all_reps[(all_reps['إلى'] == st.session_state['username']) | (all_reps['من'] == st.session_state['username'])]
-        
-        if not display_reps.empty:
-            st.dataframe(display_reps.sort_values(by="التاريخ", ascending=False), use_container_width=True)
-            
-            # تحديث الحالة إلى "مقروء" للتقارير المستلمة
-            if unread_count > 0:
-                all_reps.loc[(all_reps['إلى'] == st.session_state['username']) & (all_reps['الحالة'] == "جديد"), "الحالة"] = "مقروء"
-                all_reps.to_csv(DB_REPORTS, index=False)
-                st.info("تم تحديث كافة التقارير الجديدة إلى مقروءة.")
-        else:
-            st.info("لا توجد تقارير")
+        # تحديث الحالة لمقروء
+        if unread_count > 0:
+            all_reps.loc[(all_reps['إلى'] == st.session_state['username']) & (all_reps['الحالة'] == "جديد"), "الحالة"] = "مقروء"
+            all_reps.to_csv(DB_REPORTS, index=False)
 
-    # الخدمات الفرعية (إضافة التقرير بحالة "جديد")
     elif st.session_state['view'] == "الفرعية":
         cat = st.session_state['sub_view']
-        st.markdown(f"#### {cat}")
+        st.markdown(f'<h4 style="text-align: center; color: #002e63;">{cat}</h4>', unsafe_allow_html=True)
         
         if cat == "العمليات الميدانية":
-            plate = st.selectbox("اللوحة", FLEET_PLATES)
+            plate = st.selectbox("رقم اللوحة", FLEET_PLATES)
             all_users = pd.read_csv(DB_USERS)['username'].tolist()
-            target_user = st.selectbox("إرسال التقرير إلى:", all_users)
-            note = st.text_area("التفاصيل")
-            
+            target = st.selectbox("توجيه التقرير إلى", all_users)
+            note = st.text_area("الملاحظات")
             if st.button("إرسال التقرير"):
-                new_rep = pd.DataFrame([[datetime.now().strftime("%Y-%m-%d %H:%M"), 
-                                         st.session_state['username'], 
-                                         target_user, plate, "ميداني", note, "جديد"]], 
+                new_data = pd.DataFrame([[datetime.now().strftime("%Y-%m-%d %H:%M"), st.session_state['username'], target, plate, "ميداني", note, "جديد"]], 
                                        columns=["التاريخ", "من", "إلى", "اللوحة", "النوع", "التفاصيل", "الحالة"])
-                new_rep.to_csv(DB_REPORTS, mode='a', header=False, index=False)
-                st.success(f"تم الإرسال لـ {target_user}")
+                new_data.to_csv(DB_REPORTS, mode='a', header=False, index=False)
+                st.success("تم الإرسال بنجاح")
