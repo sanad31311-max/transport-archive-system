@@ -1,18 +1,12 @@
 import streamlit as st
 import pandas as pd
+import os
 from datetime import datetime
 
-# --- 1. قاعدة بيانات المستخدمين ---
-if 'user_db' not in st.session_state:
-    st.session_state['user_db'] = {
-        "Jassim": {
-            "pass": "Jassim2026",
-            "role": "الإدارة",
-            "perms": ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال", "إدارة المستخدمين"]
-        }
-    }
+# --- 1. إعدادات النظام والقاعدة ---
+st.set_page_config(page_title="مؤسسة أسطول الخليج", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 2. قائمة اللوحات الـ 63 ---
+# قائمة اللوحات الـ 63 المسحوبة من B6
 FLEET_PLATES = [
     '1140', '1527', '1644', '1716', '1811', '1994', '2070', '2430', '2672', '2700', 
     '3010', '3228', '3462', '3515', '3516', '3547', '3597', '3599', '3606', '3634', 
@@ -23,160 +17,156 @@ FLEET_PLATES = [
     '8834', '8940', '9109'
 ]
 
-st.set_page_config(page_title="مؤسسة أسطول الخليج", layout="wide", initial_sidebar_state="collapsed")
+# محاكي قاعدة البيانات (حفظ في ملف CSV)
+DB_FILE = "fleet_database.csv"
+if not os.path.exists(DB_FILE):
+    pd.DataFrame(columns=["التاريخ", "المستخدم", "اللوحة", "النوع", "التفاصيل"]).to_csv(DB_FILE, index=False)
 
-# --- 3. التنسيق الجمالي المتطور (إصلاح مشكلة الاختفاء) ---
+# --- 2. التنسيق الجمالي (CSS المطور) ---
 st.markdown("""
     <style>
-    /* جعل الواجهة نظيفة بدون الشريط العلوي المزعج */
     header {visibility: hidden;}
     footer {visibility: hidden;}
+    .stApp { background-color: #f8fafc; }
     
-    .stApp { background-color: #f4f7f9; }
-    
-    /* تنسيق حاوية الدخول */
-    .login-wrapper {
-        max-width: 500px;
-        margin: 0 auto;
-        padding: 50px 30px;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    .main-header {
         text-align: center;
-    }
-
-    /* مربعات الإحصائيات */
-    .stat-card {
-        background-color: #ffffff;
+        color: #002e63;
+        background: white;
         padding: 20px;
         border-radius: 15px;
-        border-top: 5px solid #002e63;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
     }
     
-    /* الأزرار الرئيسية الكبيرة */
+    .section-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        border-right: 6px solid #002e63;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
     .stButton>button {
         width: 100%;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #002e63 0%, #004aad 100%);
+        border-radius: 10px;
+        background: #002e63;
         color: white;
         font-weight: bold;
-        height: 4em;
-        margin-bottom: 10px;
+        height: 3.5em;
         border: none;
-    }
-    
-    /* زر الرجوع للرئيسية */
-    .back-btn>div>button {
-        background: #6c757d !important;
-        height: 3em !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# إدارة الحالة (أي صفحة نحن فيها)
-if 'page' not in st.session_state: st.session_state['page'] = 'login'
+# --- 3. نظام المستخدمين والصلاحيات ---
+if 'user_db' not in st.session_state:
+    st.session_state['user_db'] = {
+        "Jassim": {"pass": "Jassim2026", "role": "الإدارة", "perms": ["العمليات اليومية", "أرشيف الأسطول", "الإحصائيات العامة", "إعدادات النظام"]}
+    }
+
 if 'auth' not in st.session_state: st.session_state['auth'] = False
+if 'current_page' not in st.session_state: st.session_state['current_page'] = "الرئيسية"
 
-# --- 4. واجهة تسجيل الدخول ---
+# --- 4. صفحة تسجيل الدخول ---
 if not st.session_state['auth']:
-    st.markdown('<div style="height: 15vh;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
-    st.markdown('<h1 style="color: #002e63;">مؤسسة أسطول الخليج</h1>', unsafe_allow_html=True)
-    st.write("نظام الإدارة والأرشفة المركزي")
-    
-    u_name = st.selectbox("اختيار المستخدم", list(st.session_state['user_db'].keys()))
-    u_pass = st.text_input("كلمة المرور", type="password")
-    
-    if st.button("حفظ وإرسال بيانات الدخول"):
-        if st.session_state['user_db'][u_name]['pass'] == u_pass:
-            st.session_state['auth'] = True
-            st.session_state['username'] = u_name
-            st.session_state['user_perms'] = st.session_state['user_db'][u_name]['perms']
-            st.session_state['page'] = 'dashboard'
-            st.rerun()
-        else:
-            st.error("البيانات المدخلة غير صحيحة")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div style="height: 10vh;"></div>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="main-header"><h1>مؤسسة أسطول الخليج</h1><p>نظام الإدارة والأرشفة المركزي</p></div>', unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            u = st.selectbox("اختيار المستخدم", list(st.session_state['user_db'].keys()))
+            p = st.text_input("كلمة المرور", type="password")
+            if st.button("تسجيل الدخول"):
+                if st.session_state['user_db'][u]['pass'] == p:
+                    st.session_state['auth'] = True
+                    st.session_state['username'] = u
+                    st.session_state['user_perms'] = st.session_state['user_db'][u]['perms']
+                    st.rerun()
+                else:
+                    st.error("بيانات الدخول غير صحيحة")
 
-# --- 5. واجهة النظام الداخلية (لوحة التحكم المركزية) ---
+# --- 5. واجهة النظام الرئيسية (القوائم المنسقة) ---
 else:
-    # شريط علوي بسيط للمستخدم الحالي وزر خروج
-    col_user, col_logout = st.columns([0.8, 0.2])
-    with col_user: st.write(f"المستخدم: {st.session_state['username']}")
-    with col_logout: 
-        if st.button("خروج"):
-            st.session_state['auth'] = False
-            st.rerun()
+    # شريط علوي للمعلومات
+    col_u, col_l = st.columns([0.8, 0.2])
+    col_u.write(f"المستخدم: {st.session_state['username']} | القسم: {st.session_state['user_db'][st.session_state['username']]['role']}")
+    if col_l.button("خروج"):
+        st.session_state['auth'] = False
+        st.rerun()
 
-    # --- صفحة لوحة التحكم (الرئيسية) ---
-    if st.session_state['page'] == 'dashboard':
-        st.markdown('<h2 style="text-align: center; color: #002e63;">لوحة التحكم الرئيسية</h2>', unsafe_allow_html=True)
-        
-        # مربعات الإحصائيات
-        s1, s2, s3 = st.columns(3)
-        with s1: st.markdown(f'<div class="stat-card"><h3>{len(FLEET_PLATES)}</h3>المركبات</div>', unsafe_allow_html=True)
-        with s2: st.markdown('<div class="stat-card"><h3>63</h3>اللوحات</div>', unsafe_allow_html=True)
-        with s3: st.markdown('<div class="stat-card"><h3>101</h3>التقارير</div>', unsafe_allow_html=True)
-        
-        st.write("---")
-        
-        # أزرار التنقل الكبيرة (بدل القائمة الجانبية)
-        col1, col2 = st.columns(2)
-        
-        if "المتابعة اليومية" in st.session_state['user_perms']:
-            with col1:
-                if st.button("المتابعة اليومية للمركبات"):
-                    st.session_state['page'] = 'daily'
-                    st.rerun()
-        
-        if "معرض الأسطول" in st.session_state['user_perms']:
-            with col2:
-                if st.button("معرض الأسطول والأرشفة"):
-                    st.session_state['page'] = 'fleet'
-                    st.rerun()
+    st.markdown('<div class="main-header"><h2>لوحة التحكم الرئيسية</h2></div>', unsafe_allow_html=True)
 
-        if "أرشفة المستندات والأعطال" in st.session_state['user_perms']:
-            with col1:
-                if st.button("إدارة الأرشفة والأعطال"):
-                    st.session_state['page'] = 'archive'
-                    st.rerun()
-
-        if "إدارة المستخدمين" in st.session_state['user_perms']:
-            with col2:
-                if st.button("إدارة المستخدمين"):
-                    st.session_state['page'] = 'users'
-                    st.rerun()
-
-    # --- صفحة المتابعة اليومية ---
-    elif st.session_state['page'] == 'daily':
-        st.markdown('<div class="back-btn">', unsafe_allow_html=True)
-        if st.button("الرجوع للرئيسية"): st.session_state['page'] = 'dashboard'; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # التقسيم الهرمي للقائمة
+    if st.session_state['current_page'] == "الرئيسية":
         
-        st.header("المتابعة اليومية")
-        v = st.selectbox("اختر رقم اللوحة", FLEET_PLATES)
-        st.camera_input("التقاط صورة الحالة")
-        st.text_area("تقرير الفحص اليومي")
-        if st.button("حفظ وإرسال التقرير"): st.success("تم الحفظ")
+        # قسم الإحصائيات (الإدارة العامة)
+        if "الإحصائيات العامة" in st.session_state['user_perms']:
+            with st.expander("إحصائيات الإدارة العامة", expanded=True):
+                c1, c2, c3 = st.columns(3)
+                c1.metric("إجمالي الأسطول", len(FLEET_PLATES))
+                c2.metric("تقارير مسجلة", len(pd.read_csv(DB_FILE)))
+                c3.metric("حالة النظام", "متصل")
 
-    # --- صفحة معرض الأسطول ---
-    elif st.session_state['page'] == 'fleet':
-        if st.button("الرجوع للرئيسية"): st.session_state['page'] = 'dashboard'; st.rerun()
+        # قسم العمليات الميدانية
+        if "العمليات اليومية" in st.session_state['user_perms']:
+            st.markdown('<div class="section-card"><b>قسم العمليات اليومية</b></div>', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            if col1.button("المتابعة اليومية للمركبات"):
+                st.session_state['current_page'] = "المتابعة"
+                st.rerun()
+            if col2.button("تسجيل أعطال طارئة"):
+                st.session_state['current_page'] = "الأعطال"
+                st.rerun()
+
+        # قسم الأرشفة والمعلومات
+        if "أرشيف الأسطول" in st.session_state['user_perms']:
+            st.markdown('<div class="section-card"><b>أرشيف الأسطول والمستندات</b></div>', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            if col1.button("معرض صور الأسطول"):
+                st.session_state['current_page'] = "المعرض"
+                st.rerun()
+            if col2.button("أرشفة الاستمارات والبطاقات"):
+                st.session_state['current_page'] = "الأرشفة"
+                st.rerun()
+
+        # قسم الإعدادات
+        if "إعدادات النظام" in st.session_state['user_perms']:
+            st.markdown('<div class="section-card"><b>إعدادات النظام والسرية</b></div>', unsafe_allow_html=True)
+            if st.button("إدارة المستخدمين والصلاحيات"):
+                st.session_state['current_page'] = "المستخدمين"
+                st.rerun()
+
+    # --- صفحات الأقسام التفصيلية ---
+    elif st.session_state['current_page'] == "المتابعة":
+        if st.button("الرجوع للقائمة الرئيسية"): st.session_state['current_page'] = "الرئيسية"; st.rerun()
+        st.header("تقرير المتابعة اليومية")
+        v = st.selectbox("رقم اللوحة", FLEET_PLATES)
+        st.camera_input("تصوير حالة المركبة")
+        note = st.text_area("تقرير التشغيل اليومي")
+        if st.button("حفظ وإرسال البيانات"):
+            new_data = pd.DataFrame([[datetime.now(), st.session_state['username'], v, "متابعة يومية", note]], columns=["التاريخ", "المستخدم", "اللوحة", "النوع", "التفاصيل"])
+            new_data.to_csv(DB_FILE, mode='a', header=False, index=False)
+            st.success("تم الحفظ في قاعدة البيانات")
+
+    elif st.session_state['current_page'] == "المعرض":
+        if st.button("الرجوع للقائمة الرئيسية"): st.session_state['current_page'] = "الرئيسية"; st.rerun()
         st.header("معرض أسطول الخليج")
-        search = st.text_input("بحث برقم اللوحة")
-        display = [p for p in FLEET_PLATES if search in p] if search else FLEET_PLATES
-        cols = st.columns(2)
+        q = st.text_input("بحث برقم اللوحة")
+        display = [p for p in FLEET_PLATES if q in p] if q else FLEET_PLATES
+        cols = st.columns(3)
         for i, p in enumerate(display):
-            with cols[i % 2]:
-                st.markdown(f'<div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 10px; text-align: center;">لوحة رقم: {p}</div>', unsafe_allow_html=True)
+            with cols[i % 3]:
+                st.markdown(f'<div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 10px; text-align: center;">لوحة: {p}</div>', unsafe_allow_html=True)
 
-    # --- صفحة إدارة المستخدمين ---
-    elif st.session_state['page'] == 'users':
-        if st.button("الرجوع للرئيسية"): st.session_state['page'] = 'dashboard'; st.rerun()
-        st.header("إدارة المستخدمين")
+    elif st.session_state['current_page'] == "المستخدمين":
+        if st.button("الرجوع للقائمة الرئيسية"): st.session_state['current_page'] = "الرئيسية"; st.rerun()
+        st.header("إدارة مستخدمي النظام")
         with st.expander("إضافة مستخدم جديد"):
-            nu = st.text_input("الاسم")
-            np = st.text_input("كلمة السر")
-            if st.button("حفظ الموظف الجديد"): st.success("تم التفعيل")
+            nu = st.text_input("اسم المستخدم")
+            np = st.text_input("كلمة المرور")
+            pms = st.multiselect("الصلاحيات", ["العمليات اليومية", "أرشيف الأسطول", "الإحصائيات العامة", "إعدادات النظام"])
+            if st.button("حفظ وإرسال بيانات المستخدم"):
+                st.session_state['user_db'][nu] = {"pass": np, "role": "موظف", "perms": pms}
+                st.success("تم التفعيل")
