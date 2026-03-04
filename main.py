@@ -23,14 +23,39 @@ FLEET_PLATES = [
     '8834', '8940', '9109'
 ]
 
+# إعدادات الصفحة وإخفاء العناصر الافتراضية المزعجة
 st.set_page_config(page_title="مؤسسة أسطول الخليج", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 3. التنسيق الجمالي الحديث (Modern UI) ---
+# --- 3. التنسيق الجمالي الاحترافي (إزالة المستطيل العلوي وتوسيط النص) ---
 st.markdown("""
     <style>
+    /* إخفاء الهيدر الافتراضي لستريمليت لإزالة المستطيل الأبيض العلوي */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    
     .stApp { background-color: #f4f7f9; }
     
-    /* تصميم المربعات الإحصائية */
+    /* تنسيق حاوية الدخول وتوسيطها */
+    .login-wrapper {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 50px 30px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    /* توسيط العناوين */
+    .centered-title {
+        text-align: center;
+        color: #002e63;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    /* المربعات الإحصائية */
     .metric-container {
         background-color: #ffffff;
         padding: 25px;
@@ -41,19 +66,7 @@ st.markdown("""
         margin-bottom: 25px;
     }
     
-    /* تصميم بطاقات السيارات في المعرض */
-    .fleet-card {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #dee2e6;
-        margin-bottom: 15px;
-        text-align: center;
-        font-weight: bold;
-        color: #002e63;
-    }
-    
-    /* تصميم الأزرار الاحترافي */
+    /* الأزرار الرسمية */
     .stButton>button {
         width: 100%;
         border-radius: 10px;
@@ -62,28 +75,18 @@ st.markdown("""
         font-weight: bold;
         height: 3.5em;
         border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    /* توسيط واجهة الدخول */
-    .login-wrapper {
-        max-width: 450px;
-        margin: auto;
-        padding: 40px;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
     }
     </style>
     """, unsafe_allow_html=True)
 
 if 'auth' not in st.session_state: st.session_state['auth'] = False
 
-# --- 4. واجهة تسجيل الدخول ---
+# --- 4. واجهة تسجيل الدخول المحدثة ---
 if not st.session_state['auth']:
+    st.markdown('<div style="height: 10vh;"></div>', unsafe_allow_html=True) # فراغ علوي بسيط بدلاً من المستطيل
     st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
-    st.title("مؤسسة أسطول الخليج")
-    st.write("نظام إدارة وأرشفة البيانات المركزية")
+    st.markdown('<h1 class="centered-title">مؤسسة أسطول الخليج</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #666;">نظام الإدارة والأرشفة المركزي</p>', unsafe_allow_html=True)
     
     users = list(st.session_state['user_db'].keys())
     u_name = st.selectbox("اختيار المستخدم", users)
@@ -102,66 +105,58 @@ if not st.session_state['auth']:
 # --- 5. واجهة النظام الداخلية ---
 else:
     with st.sidebar:
-        st.write(f"المستخدم الحالي: {st.session_state['username']}")
+        st.markdown(f"### المستخدم: {st.session_state['username']}")
         available_menu = [i for i in ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال", "إدارة المستخدمين"] if i in st.session_state['user_perms']]
-        choice = st.radio("قائمة النظام:", available_menu)
+        choice = st.radio("القائمة:", available_menu)
         st.divider()
         if st.button("تسجيل الخروج من النظام"):
             st.session_state['auth'] = False
             st.rerun()
 
     if choice == "الإدارة العامة":
-        st.header("الإدارة العامة")
+        st.markdown('<h1 class="centered-title">الإدارة العامة</h1>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
         with c1: st.markdown(f'<div class="metric-container"><h3>{len(FLEET_PLATES)}</h3>إجمالي المركبات</div>', unsafe_allow_html=True)
         with c2: st.markdown('<div class="metric-container"><h3>63</h3>لوحات مؤرشفة</div>', unsafe_allow_html=True)
         with c3: st.markdown('<div class="metric-container"><h3>101</h3>صفحة بيانات</div>', unsafe_allow_html=True)
-        
-        st.subheader("التحديثات الأخيرة")
         st.info("النظام يعمل بكافة صلاحياته الحالية.")
 
     elif choice == "المتابعة اليومية":
         st.header("المتابعة اليومية")
         v = st.selectbox("اختر رقم اللوحة للمتابعة", FLEET_PLATES)
-        st.write(f"تاريخ التقرير: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        st.camera_input("التقاط صورة الحالة اليومية للمركبة")
-        st.text_area("تقرير الفحص والتشغيل اليومي")
+        st.write(f"تاريخ العملية: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        st.camera_input("التقاط صورة الحالة اليومية")
+        st.text_area("تقرير الفحص اليومي")
         if st.button("حفظ وإرسال التقرير اليومي"):
-            st.success(f"تم حفظ وإرسال تقرير المركبة رقم {v} بنجاح.")
+            st.success(f"تم حفظ وإرسال التقرير بنجاح.")
 
     elif choice == "معرض الأسطول":
         st.header("معرض الأسطول")
-        search = st.text_input("البحث السريع برقم اللوحة")
+        search = st.text_input("البحث برقم اللوحة")
         display = [p for p in FLEET_PLATES if search in p] if search else FLEET_PLATES
-        
         cols = st.columns(2)
         for i, p in enumerate(display):
             with cols[i % 2]:
-                st.markdown(f'<div class="fleet-card">رقم اللوحة: {p}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 10px; text-align: center; font-weight: bold;">لوحة رقم: {p}</div>', unsafe_allow_html=True)
 
     elif choice == "أرشفة المستندات والأعطال":
         st.header("إدارة الأرشفة والأعطال")
-        target = st.selectbox("اختر اللوحة المستهدفة", FLEET_PLATES)
-        tab1, tab2 = st.tabs(["أرشفة المستندات", "توثيق أعطال المركبة"])
-        
-        with tab1:
-            st.file_uploader("رفع صورة الاستمارة أو البطاقة الجمركية")
-            if st.button("حفظ وإرسال المستندات"):
-                st.success("تمت أرشفة المستند بنجاح.")
-        
-        with tab2:
-            st.file_uploader("رفع صور أعطال المركبة")
-            st.text_area("وصف العطل الحالي")
-            if st.button("حفظ وإرسال بيانات العطل"):
-                st.success("تم إرسال بلاغ العطل للقسم الفني.")
+        target = st.selectbox("اختر اللوحة", FLEET_PLATES)
+        t1, t2 = st.tabs(["أرشفة المستندات", "أعطال المركبة"])
+        with t1:
+            st.file_uploader("رفع صورة المستند")
+            if st.button("حفظ وإرسال المستندات"): st.success("تم الحفظ")
+        with t2:
+            st.file_uploader("صور أعطال المركبة")
+            st.text_area("وصف العطل")
+            if st.button("حفظ وإرسال بيانات العطل"): st.success("تم الإرسال")
 
     elif choice == "إدارة المستخدمين":
-        st.header("إدارة المستخدمين والصلاحيات")
+        st.header("إدارة المستخدمين")
         with st.expander("إضافة مستخدم جديد"):
-            nu = st.text_input("اسم المستخدم الجديد")
-            np = st.text_input("كلمة مرور المستخدم")
-            pms = st.multiselect("تحديد صلاحيات الوصول", ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال"])
+            nu = st.text_input("اسم المستخدم")
+            np = st.text_input("كلمة المرور")
+            pms = st.multiselect("الصلاحيات", ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال"])
             if st.button("حفظ وإرسال بيانات المستخدم"):
-                if nu and np:
-                    st.session_state['user_db'][nu] = {"pass": np, "role": "موظف", "perms": pms}
-                    st.success(f"تم تفعيل حساب {nu} في النظام.")
+                st.session_state['user_db'][nu] = {"pass": np, "role": "موظف", "perms": pms}
+                st.success(f"تم تفعيل حساب {nu}")
