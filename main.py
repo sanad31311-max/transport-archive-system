@@ -1,112 +1,167 @@
 import streamlit as st
 import pandas as pd
-import os
+from datetime import datetime
 
-# 1. نظام المستخدمين والصلاحيات (أبو محمد هو الأدمن)
-USERS = {
-    "abu_mohammed": "123456",  # المستخدم الأساسي بصلاحيات كاملة
-    "employee1": "emp123"      # موظف بصلاحيات تصفح فقط
-}
+# --- 1. قاعدة بيانات المستخدمين والصلاحيات ---
+if 'user_db' not in st.session_state:
+    st.session_state['user_db'] = {
+        "Jassim": {
+            "pass": "Jassim2026",
+            "role": "الإدارة",
+            "perms": ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال", "إدارة المستخدمين"]
+        }
+    }
 
-# إعدادات واجهة التطبيق الرسمية لتناسب الجوال
-st.set_page_config(page_title="نظام سند للأرشفة", layout="wide", initial_sidebar_state="collapsed")
+# --- 2. قائمة اللوحات الـ 63 المسحوبة من الخانة B6 ---
+FLEET_PLATES = [
+    '1140', '1527', '1644', '1716', '1811', '1994', '2070', '2430', '2672', '2700', 
+    '3010', '3228', '3462', '3515', '3516', '3547', '3597', '3599', '3606', '3634', 
+    '3635', '3636', '3656', '3830', '3838', '3850', '4179', '4383', '4669', '5471', 
+    '5645', '5786', '5826', '6123', '6264', '6265', '6388', '6472', '6785', '6787', 
+    '6800', '6901', '6922', '6972', '6995', '7123', '7233', '7353', '7455', '7646', 
+    '7668', '7906', '8116', '8465', '8484', '8674', '8795', '8796', '8797', '8827', 
+    '8834', '8940', '9109'
+]
 
-# تنسيق المظهر العام ليناسب التصفح السريع (رسمي وبدون إيموجيات)
+st.set_page_config(page_title="مؤسسة أسطول الخليج", layout="wide", initial_sidebar_state="collapsed")
+
+# --- 3. التنسيق الجمالي الحديث (Modern UI) ---
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 8px; background-color: #1a1a1a; color: white; height: 3.5em; font-weight: bold; }
-    .car-card { padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0; background-color: white; margin-bottom: 15px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { background-color: #f1f1f1; border-radius: 5px; padding: 10px; }
+    .stApp { background-color: #f4f7f9; }
+    
+    /* تصميم المربعات الإحصائية */
+    .metric-container {
+        background-color: #ffffff;
+        padding: 25px;
+        border-radius: 15px;
+        border-right: 10px solid #002e63;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    
+    /* تصميم بطاقات السيارات في المعرض */
+    .fleet-card {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #dee2e6;
+        margin-bottom: 15px;
+        text-align: center;
+        font-weight: bold;
+        color: #002e63;
+    }
+    
+    /* تصميم الأزرار الاحترافي */
+    .stButton>button {
+        width: 100%;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #002e63 0%, #004aad 100%);
+        color: white;
+        font-weight: bold;
+        height: 3.5em;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    /* توسيط واجهة الدخول */
+    .login-wrapper {
+        max-width: 450px;
+        margin: auto;
+        padding: 40px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- محرك التحقق من الدخول ---
-if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = False
+if 'auth' not in st.session_state: st.session_state['auth'] = False
 
-if not st.session_state['authenticated']:
-    st.title("نظام أرشفة مؤسسة النقل")
-    st.subheader("تسجيل الدخول")
-    u_input = st.text_input("اسم المستخدم")
-    p_input = st.text_input("كلمة المرور", type="password")
-    if st.button("دخول"):
-        if u_input in USERS and USERS[u_input] == p_input:
-            st.session_state['authenticated'] = True
-            st.session_state['username'] = u_input
+# --- 4. واجهة تسجيل الدخول ---
+if not st.session_state['auth']:
+    st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
+    st.title("مؤسسة أسطول الخليج")
+    st.write("نظام إدارة وأرشفة البيانات المركزية")
+    
+    users = list(st.session_state['user_db'].keys())
+    u_name = st.selectbox("اختيار المستخدم", users)
+    u_pass = st.text_input("كلمة المرور", type="password")
+    
+    if st.button("حفظ وإرسال بيانات الدخول"):
+        if st.session_state['user_db'][u_name]['pass'] == u_pass:
+            st.session_state['auth'] = True
+            st.session_state['username'] = u_name
+            st.session_state['user_perms'] = st.session_state['user_db'][u_name]['perms']
             st.rerun()
         else:
             st.error("البيانات المدخلة غير صحيحة")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 5. واجهة النظام الداخلية ---
 else:
-    # القائمة الجانبية (3 خطوط)
     with st.sidebar:
-        st.title("القائمة الرئيسية")
-        menu = ["الصفحة الرئيسية", "معرض الأسطول (تصفح)", "إدارة ملفات المركبات", "تسجيل مركبة جديدة", "الإعدادات"]
-        choice = st.radio("انتقل إلى:", menu)
+        st.write(f"المستخدم الحالي: {st.session_state['username']}")
+        available_menu = [i for i in ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال", "إدارة المستخدمين"] if i in st.session_state['user_perms']]
+        choice = st.radio("قائمة النظام:", available_menu)
         st.divider()
-        if st.button("تسجيل الخروج"):
-            st.session_state['authenticated'] = False
+        if st.button("تسجيل الخروج من النظام"):
+            st.session_state['auth'] = False
             st.rerun()
 
-    # ركن الحساب أعلى اليسار
-    col_acc1, col_acc2 = st.columns([0.85, 0.15])
-    with col_acc2:
-        st.write(f"الحساب: {st.session_state['username']}")
+    if choice == "الإدارة العامة":
+        st.header("الإدارة العامة")
+        c1, c2, c3 = st.columns(3)
+        with c1: st.markdown(f'<div class="metric-container"><h3>{len(FLEET_PLATES)}</h3>إجمالي المركبات</div>', unsafe_allow_html=True)
+        with c2: st.markdown('<div class="metric-container"><h3>63</h3>لوحات مؤرشفة</div>', unsafe_allow_html=True)
+        with c3: st.markdown('<div class="metric-container"><h3>101</h3>صفحة بيانات</div>', unsafe_allow_html=True)
+        
+        st.subheader("التحديثات الأخيرة")
+        st.info("النظام يعمل بكافة صلاحياته الحالية.")
 
-    # --- الأقسام ---
-    if choice == "الصفحة الرئيسية":
-        st.header("لوحة التحكم")
-        st.write("مرحباً بك في النظام الرسمي لإدارة وأرشفة أسطول مؤسسة النقل.")
-        st.info("استخدم القائمة الجانبية للتنقل بين المعرض وإدارة الملفات.")
+    elif choice == "المتابعة اليومية":
+        st.header("المتابعة اليومية")
+        v = st.selectbox("اختر رقم اللوحة للمتابعة", FLEET_PLATES)
+        st.write(f"تاريخ التقرير: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        st.camera_input("التقاط صورة الحالة اليومية للمركبة")
+        st.text_area("تقرير الفحص والتشغيل اليومي")
+        if st.button("حفظ وإرسال التقرير اليومي"):
+            st.success(f"تم حفظ وإرسال تقرير المركبة رقم {v} بنجاح.")
 
-    elif choice == "معرض الأسطول (تصفح)":
-        st.header("استعراض الأسطول")
-        st.write("قائمة السيارات المسجلة في النظام:")
-        # مثال لعرض السيارات (سيتم ربطها بقاعدة البيانات لاحقاً)
-        for i in range(1, 4): 
-            with st.container():
-                st.markdown(f'<div class="car-card"><b>مركبة رقم {i}</b><br>رقم اللوحة: 1234 س ن د | رقم الهيكل: VIN00000{i}</div>', unsafe_allow_html=True)
-                c1, c2, c3, c4 = st.columns(4)
-                if c1.button("عرض الاستمارة", key=f"v1_{i}"): st.info("جاري عرض المستندات الرسمية...")
-                if c2.button("عرض صور السيارة", key=f"v2_{i}"): st.info("جاري فتح ألبوم الصور...")
-                if c3.button("حالة عضلات السيارة", key=f"v3_{i}"): st.info("عرض تقرير الفحص الميكانيكي...")
-                if c4.button("سجل الفواتير", key=f"v4_{i}"): st.info("عرض أرشيف الفواتير والتقارير...")
+    elif choice == "معرض الأسطول":
+        st.header("معرض الأسطول")
+        search = st.text_input("البحث السريع برقم اللوحة")
+        display = [p for p in FLEET_PLATES if search in p] if search else FLEET_PLATES
+        
+        cols = st.columns(2)
+        for i, p in enumerate(display):
+            with cols[i % 2]:
+                st.markdown(f'<div class="fleet-card">رقم اللوحة: {p}</div>', unsafe_allow_html=True)
 
-    elif choice == "إدارة ملفات المركبات":
-        if st.session_state['username'] == "abu_mohammed":
-            st.header("إدارة وتحديث ملفات المركبات")
-            search_id = st.text_input("ابحث برقم الهيكل أو اللوحة للتعديل أو الإضافة")
-            if search_id:
-                st.subheader("تعديل ملف السيارة: " + search_id)
-                tab1, tab2, tab3, tab4 = st.tabs(["البحث عن الاستمارة", "صور السياره", "عضلات السياره", "فواتير السياره"])
-                with tab1:
-                    st.file_uploader("رفع استمارة أو بطاقة جمركية جديدة", type=['pdf', 'jpg', 'png'])
-                with tab2:
-                    st.camera_input("التقاط صورة مباشرة للسيارة")
-                with tab3:
-                    st.write("توثيق الحالة الميكانيكية وعضلات السيارة")
-                    st.file_uploader("رفع صور الفحص الميكانيكي", key="mech_up")
-                with tab4:
-                    st.file_uploader("رفع فواتير الصيانة والتقارير المالية", key="inv_up")
-        else:
-            st.warning("عذراً، صلاحية التعديل والإضافة متاحة للأدمن فقط.")
+    elif choice == "أرشفة المستندات والأعطال":
+        st.header("إدارة الأرشفة والأعطال")
+        target = st.selectbox("اختر اللوحة المستهدفة", FLEET_PLATES)
+        tab1, tab2 = st.tabs(["أرشفة المستندات", "توثيق أعطال المركبة"])
+        
+        with tab1:
+            st.file_uploader("رفع صورة الاستمارة أو البطاقة الجمركية")
+            if st.button("حفظ وإرسال المستندات"):
+                st.success("تمت أرشفة المستند بنجاح.")
+        
+        with tab2:
+            st.file_uploader("رفع صور أعطال المركبة")
+            st.text_area("وصف العطل الحالي")
+            if st.button("حفظ وإرسال بيانات العطل"):
+                st.success("تم إرسال بلاغ العطل للقسم الفني.")
 
-    elif choice == "تسجيل مركبة جديدة":
-        st.header("إضافة مركبة للأسطول")
-        with st.form("new_vehicle_form"):
-            f1, f2 = st.columns(2)
-            f1.text_input("رقم الهيكل")
-            f1.text_input("رقم اللوحة")
-            f2.text_input("رقم البطاقة الجمركية")
-            f2.text_input("نوع السيارة")
-            if st.form_submit_button("حفظ البيانات في الأرشيف"):
-                st.success("تم تسجيل بيانات المركبة بنجاح")
-
-    elif choice == "الإعدادات":
-        st.header("إعدادات النظام والأمان")
-        if st.session_state['username'] == "abu_mohammed":
-            st.write("إدارة صلاحيات المستخدمين والنسخ الاحتياطي")
-            st.button("تصدير قاعدة البيانات بالكامل (Excel)")
-        else:
-            st.write("يمكن للأدمن فقط الوصول لهذه الإعدادات والتحكم في النظام.")
+    elif choice == "إدارة المستخدمين":
+        st.header("إدارة المستخدمين والصلاحيات")
+        with st.expander("إضافة مستخدم جديد"):
+            nu = st.text_input("اسم المستخدم الجديد")
+            np = st.text_input("كلمة مرور المستخدم")
+            pms = st.multiselect("تحديد صلاحيات الوصول", ["الإدارة العامة", "المتابعة اليومية", "معرض الأسطول", "أرشفة المستندات والأعطال"])
+            if st.button("حفظ وإرسال بيانات المستخدم"):
+                if nu and np:
+                    st.session_state['user_db'][nu] = {"pass": np, "role": "موظف", "perms": pms}
+                    st.success(f"تم تفعيل حساب {nu} في النظام.")
